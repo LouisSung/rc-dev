@@ -1,0 +1,15 @@
+FROM node:12.22.1-buster-slim
+
+# COPY bundle /app/bundle
+ENV NODE_ENV=production RC_VERSION=3.14.0
+RUN groupadd -r rocketchat && useradd -r -g rocketchat rocketchat \
+    && apt-get update && apt-get install -y --no-install-recommends fontconfig && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /app/uploads && mkdir -p /app/bundle
+
+USER rocketchat
+VOLUME /app/uploads
+WORKDIR /app/bundle
+ENV DEPLOY_METHOD=docker-official MONGO_URL=mongodb://db:27017/meteor HOME=/tmp PORT=3000 ROOT_URL=http://localhost:3000 Accounts_AvatarStorePath=/app/uploads
+
+EXPOSE 3000
+CMD ["node", "main.js"]

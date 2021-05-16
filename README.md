@@ -1,8 +1,8 @@
 # Rocket.Chat Dev | Dev env set up using Docker
 ## Docker Image Build
 ```bash
-# build image
-cd docker && bash build.sh
+# build images
+./docker/build.sh
 ```
 
 ## Dev Env Setup
