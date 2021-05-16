@@ -1,0 +1,36 @@
+FROM node:12.22.1-buster
+
+WORKDIR /root
+RUN groupadd -r rocketchat && useradd -r -g rocketchat rocketchat \
+    && curl https://install.meteor.com/?release=2.1.1 | sh
+RUN git clone --branch v1.25.0 https://github.com/RocketChat/Rocket.Chat.Apps-engine /root/Rocket.Chat.Apps-engine \
+    && cd /root/Rocket.Chat.Apps-engine && npm install && npm run compile \
+    && git clone --branch 3.14.0 https://github.com/RocketChat/Rocket.Chat /root/Rocket.Chat \
+    && cd /root/Rocket.Chat && meteor npm install ../Rocket.Chat.Apps-engine
+
+ENV RC_VERSION=3.14.0 METEOR_ALLOW_SUPERUSER=true METEOR_MONGO_BIND_IP=0.0.0.0
+WORKDIR /root/Rocket.Chat
+RUN (timeout 9m meteor run --inspect; exit 0)
+# VOLUME /root/Rocket.Chat/.meteor/local/db  # for dev MongoDB; mount as needed when docker run
+
+RUN meteor build --server-only --directory /root/app \
+    && cd /root/app/bundle/programs/server && npm install \
+    && mkdir -p /root/app/uploads && chown -R rocketchat:rocketchat /root/app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+            openssh-server vim \
+        && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /var/run/sshd && ssh-keygen -t rsa -b 4096 -f /root/.ssh/id_rsa -P '' -C 'rc-dev' \
+    && mv /root/.ssh/id_rsa.pub /root/.ssh/authorized_keys && mv /root/.ssh/id_rsa /root/.rc.key
+
+# sample plugins: https://developer.rocket.chat/apps-development/recipes
+RUN npm install -g @rocket.chat/apps-cli \
+    && git clone --branch recipes/registering-api-endpoints https://github.com/RocketChat/Apps.RocketChat.Tester /root/Apps/recipes \
+    && sed -i 's/export class RocketChatTester/export class AppsRocketChatTesterApp/' /root/Apps/recipes/AppsRocketChatTesterApp.ts \
+    && cd /root/Apps/recipes && npm install && rc-apps package
+
+EXPOSE 22 3000 3001 9229
+RUN echo '#!/usr/bin/env bash\n/usr/sbin/sshd\nexec "$@"' > /usr/local/bin/docker-entrypoint.sh \
+    && chmod +x /usr/local/bin/docker-entrypoint.sh
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["meteor", "run", "--inspect=0.0.0.0"]

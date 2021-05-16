@@ -1,2 +1,12 @@
+.idea/*
+!.idea/deployment.xml
+!.idea/sshConfigs.xml
+!.idea/vcs.xml
+!.idea/webServers.xml
+
+# Rocket.Chat Dev Env
 Rocket.Chat/
-.idea/
+Rocket.Chat.Apps-engine/
+Apps/recipes/
+app/
+.rc.key

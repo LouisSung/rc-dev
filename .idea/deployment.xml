@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="PublishConfigData" serverName="rc-dev" exclude=".svn;.cvs;.idea;.DS_Store;.git;.hg;*.hprof;*.pyc;.npm;node_modules" remoteFilesAllowedToDisappearOnAutoupload="false">
+    <serverData>
+      <paths name="rc-dev">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/Rocket.Chat" local="$PROJECT_DIR$/Rocket.Chat" web="/" />
+            <mapping deploy="/Rocket.Chat.Apps-engine" local="$PROJECT_DIR$/Rocket.Chat.Apps-engine" web="/" />
+            <mapping deploy="/Apps" local="$PROJECT_DIR$/Apps" web="/" />
+            <mapping deploy="/app" local="$PROJECT_DIR$/app" web="/" />
+          </mappings>
+          <excludedPaths>
+            <excludedPath path="/Rocket.Chat/.meteor" />
+            <excludedPath path="/Rocket.Chat/imports" />
+            <excludedPath path="/Rocket.Chat/private" />
+            <excludedPath path="/Rocket.Chat/public" />
+            <excludedPath path="/Rocket.Chat.Apps-engine/client" />
+            <excludedPath path="/Rocket.Chat.Apps-engine/definition" />
+            <excludedPath path="/Rocket.Chat.Apps-engine/lib" />
+            <excludedPath path="/Rocket.Chat.Apps-engine/server" />
+          </excludedPaths>
+        </serverdata>
+      </paths>
+    </serverData>
+  </component>
+</project>
