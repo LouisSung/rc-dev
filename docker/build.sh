@@ -10,6 +10,7 @@ VER_APPS_ENGINE='1.25.0'
 
 THIS_SCRIPT='build.sh'
 DOCKERFILE_DEV='DockerfileDev'
+DOCKERFILE_ENV='DockerfileEnv'
 DOCKERFILE_BUILD='DockerfileBuild'
 Docker_ENTRYPOINT='docker-entrypoint.sh'
 TMP_DOCKERFILE='.DockerfileTmp'
@@ -53,6 +54,7 @@ sed -i "s/louissung\/rc:build-[^ ]*/louissung\/rc:build-$VER_ROCKET_CHAT/" $Dock
 docker build -t "louissung/rc:dev-$VER_ROCKET_CHAT" -f $DOCKERFILE_DEV .
 # comment out to copy bundle from the image
 # rm -rf ../app/bundle && mkdir -p ../app/bundle && docker run --name rc-bundle -v "$(pwd)/../app/bundle:/appBundle" "louissung/rc:dev-$VER_ROCKET_CHAT" bash -c 'cp -r /root/app/bundle/. /appBundle && chmod -R o+w /appBundle' && docker rm rc-bundle
+docker build -t "louissung/rc:env-$VER_ROCKET_CHAT" -f $DOCKERFILE_ENV .
 docker build -t "louissung/rc:build-$VER_ROCKET_CHAT" -f $DOCKERFILE_BUILD .
 
 # >>>>>>> Script End

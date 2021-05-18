@@ -1,0 +1,26 @@
+FROM node:12.22.1-buster-slim
+
+ENV RC_VERSION=3.14.0
+RUN apt-get update && apt-get install -y --no-install-recommends \
+            ca-certificates curl git g++ make openssh-server python vim \
+        && rm -rf /var/lib/apt/lists/* \
+    && npm install -g node-gyp-cache && npm config set node_gyp node-gyp-cache \
+    && groupadd -r rocketchat && useradd -r -g rocketchat rocketchat
+
+WORKDIR /app
+RUN curl https://install.meteor.com/?release=2.1.1 | sh \
+    \
+    && git clone --branch v1.25.0 https://github.com/RocketChat/Rocket.Chat.Apps-engine /app/Rocket.Chat.Apps-engine \
+    && cd /app/Rocket.Chat.Apps-engine && npm install && npm run compile \
+    && git clone --branch 3.14.0 https://github.com/RocketChat/Rocket.Chat /app/Rocket.Chat \
+    && cd /app/Rocket.Chat && meteor npm install ../Rocket.Chat.Apps-engine \
+    \
+    && (timeout 9m meteor run --inspect; exit 0) \
+    && meteor --allow-superuser build --server-only --directory /app \
+    && cd /app/bundle/programs/server && npm install \
+    \
+    && cd /app/Rocket.Chat && mv package-lock.json ../rc-package-lock.json \
+    && (git ls-files -z | xargs -0 rm -f) && (git ls-tree --name-only -d -r -z HEAD | sort -rz | xargs -0 rmdir || true) \
+    && cd /app/Rocket.Chat.Apps-engine && mv package-lock.json ../rc-ae-package-lock.json && rm -rf client definition lib server \
+    && (git ls-files -z | xargs -0 rm -f) && (git ls-tree --name-only -d -r -z HEAD | sort -rz | xargs -0 rmdir || true) \
+    && rm -rf /app/bundle && chown -R rocketchat:rocketchat /app
