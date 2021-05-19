@@ -1,10 +1,10 @@
 FROM node:12.22.1-buster-slim
-# docker pull louissung/rc:build-3.14.0-890c
+# docker pull louissung/rc:build-3.14.0-3185
 
-ENV RC_VERSION=3.14.0
+ENV RC_VERSION=3.14.0 HOME=/app
 WORKDIR /app
-RUN groupadd -r rocketchat && useradd -r -g rocketchat rocketchat\
-    && apt-get update &&  apt-get install -y --no-install-recommends \
+RUN groupadd -r rocketchat && useradd -r -g rocketchat rocketchat \
+    && apt-get update && apt-get install -y --no-install-recommends \
             ca-certificates curl git fontconfig openssh-server vim \
         && aptMark="$(apt-mark showmanual)" && apt-get install -y --no-install-recommends \
             g++ make python \
@@ -40,4 +40,5 @@ RUN groupadd -r rocketchat && useradd -r -g rocketchat rocketchat\
     && cd /app/Rocket.Chat.Electron && mv yarn.lock ../locks/rc-electron-yarn.lock && rm -rf app \
     && (git ls-files -z | xargs -0 rm -f) && (git ls-tree --name-only -d -r -z HEAD | sort -rz | xargs -0 rmdir || true) \
     \
-    && chown -R rocketchat:rocketchat /app
+    # grant file access permission for all users (also require setting the `HOME=/app` to share caches across users)
+    && mkdir -p /home/rocketchat && chown -R rocketchat:rocketchat /app /home/rocketchat && chmod -R ugo+rwX /app /home
