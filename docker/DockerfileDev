@@ -1,4 +1,5 @@
 FROM node:12.22.1-buster
+# docker pull louissung/rc:dev-3.14.0-46a6
 
 WORKDIR /root
 RUN groupadd -r rocketchat && useradd -r -g rocketchat rocketchat \
