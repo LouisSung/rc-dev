@@ -22,7 +22,7 @@ node /root/app/bundle/main.js
 
 # ===== deploy mode =====
 # same setup as prod mode (network, volume, and mongodb)
-# docker run -idt --name rc-deploy --network=rc-network -v rc-uploads:/app/uploads  -v "$(pwd)/app/bundle:/app/bundle" -p 3000:3000 -e MONGO_URL=mongodb://rc-mongo:27017/rocketchat louissung/rc:base-3.14.0
+# docker run -idt --name rc-deploy --network=rc-network -v rc-uploads:/app/uploads  -v "$(pwd)/app/bundle:/app/bundle" -p 3000:3000 -e MONGO_URL=mongodb://rc-mongo:27017/rocketchat louissung/rc:runtime-3.14.0
 
 # ===== useful docker commands =====
 # docker rm rc-dev && docker volume rm rc-db

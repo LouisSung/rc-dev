@@ -1,10 +1,11 @@
 FROM node:12.22.1-buster-slim
+# docker pull louissung/rc:runtime-3.14.0-d8df
 
 # COPY bundle /app/bundle
-ENV NODE_ENV=production RC_VERSION=3.14.0
+ENV RC_VERSION=3.14.0 NODE_ENV=production
 RUN groupadd -r rocketchat && useradd -r -g rocketchat rocketchat \
     && apt-get update && apt-get install -y --no-install-recommends fontconfig && rm -rf /var/lib/apt/lists/* \
-    && mkdir -p /app/uploads && mkdir -p /app/bundle
+    && mkdir -p /app/uploads && mkdir -p /app/bundle && chown -R rocketchat:rocketchat /app
 
 USER rocketchat
 VOLUME /app/uploads
