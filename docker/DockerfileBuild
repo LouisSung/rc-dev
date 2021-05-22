@@ -1,13 +1,13 @@
 FROM node:12.22.1-buster-slim
-# docker pull louissung/rc:build-3.14.0-3185
+# docker pull louissung/rc:build-3.14.0-de64
 
 ENV RC_VERSION=3.14.0 HOME=/app
 WORKDIR /app
 RUN groupadd -r rocketchat && useradd -r -g rocketchat rocketchat \
     && apt-get update && apt-get install -y --no-install-recommends \
-            ca-certificates curl git fontconfig openssh-server vim \
+            ca-certificates curl fontconfig git make openssh-server python vim \
         && aptMark="$(apt-mark showmanual)" && apt-get install -y --no-install-recommends \
-            g++ make python \
+            g++ \
         && rm -rf /var/lib/apt/lists/* \
     && npm install -g node-gyp-cache && npm config set node_gyp node-gyp-cache \
     \
@@ -33,7 +33,7 @@ RUN groupadd -r rocketchat && useradd -r -g rocketchat rocketchat \
     \
     # purge source code and leave the build env only
     && mkdir /app/locks \
-    && cd /app/Rocket.Chat && mv package-lock.json ../locks/rc-package-lock.json && rm -rf /app/bundle \
+    && cd /app/Rocket.Chat && mv package-lock.json ../locks/rc-package-lock.json \
     && (git ls-files -z | xargs -0 rm -f) && (git ls-tree --name-only -d -r -z HEAD | sort -rz | xargs -0 rmdir || true) \
     && cd /app/Rocket.Chat.Apps-engine && mv package-lock.json ../locks/rc-ae-package-lock.json && rm -rf client definition lib server \
     && (git ls-files -z | xargs -0 rm -f) && (git ls-tree --name-only -d -r -z HEAD | sort -rz | xargs -0 rmdir || true) \
