@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # specify manually
-VER_ROCKET_CHAT='3.14.0'
+VER_ROCKET_CHAT='3.14.1'
 
 # update automatically
 VER_BASE='12.22.1-buster-slim'

@@ -1,7 +1,8 @@
 FROM node:12.22.1-buster-slim
-# docker pull louissung/rc:build-3.14.0-de64
+# docker pull louissung/rc:build-3.14.1-e107
 
-ENV RC_VERSION=3.14.0 HOME=/app
+ENV RC_VERSION=3.14.1 HOME=/app TERM=xterm METEOR_ALLOW_SUPERUSER=true \
+    YARN_ENABLE_GLOBAL_CACHE=true YARN_NODE_LINKER=node-modules YARN_ENABLE_INLINE_HUNKS=true
 WORKDIR /app
 RUN groupadd -r rocketchat && useradd -r -g rocketchat rocketchat \
     && apt-get update && apt-get install -y --no-install-recommends \
@@ -11,30 +12,42 @@ RUN groupadd -r rocketchat && useradd -r -g rocketchat rocketchat \
             g++ \
         && rm -rf /var/lib/apt/lists/* \
     \
-    && curl https://install.meteor.com/?release=2.1.1 | sh \
-    && meteor npm install -g yarn && yarn config set install.prefer-offline true \
+    # fixme: restore `yarn set version from sources` when the issues and pr are solved and merged
+    && mkdir -p /app/upgradeYarn && cd /app/upgradeYarn \
+    && yarn init -y && yarn set version berry && YARN_NODE_LINKER=pnp yarn set version from sources && rm package.json && cd /app \
+    && echo '#!/usr/bin/env bash\ncp -rn /app/upgradeYarn/. .' > /usr/local/bin/upgradeYarn \
+    && chown -R rocketchat:rocketchat /usr/local/bin && chmod -R ugo+rwx /usr/local/bin \
+    \
+    && curl https://install.meteor.com/?release=2.1.1 | sh && meteor npm install -g yarn \
     \
     # clone source code and install dependencies
     && git clone --branch v1.25.0 https://github.com/RocketChat/Rocket.Chat.Apps-engine /app/Rocket.Chat.Apps-engine \
-    && cd /app/Rocket.Chat.Apps-engine && yarn install && yarn run compile \
-    && git clone --branch 3.14.0 https://github.com/RocketChat/Rocket.Chat /app/Rocket.Chat \
-    && cd /app/Rocket.Chat && meteor yarn add ../Rocket.Chat.Apps-engine \
+    && cd /app/Rocket.Chat.Apps-engine && upgradeYarn && yarn install && yarn run compile \
+    && git clone --branch 3.14.1 https://github.com/RocketChat/Rocket.Chat /app/Rocket.Chat \
+    && cd /app/Rocket.Chat && upgradeYarn && meteor yarn install && meteor yarn add ../Rocket.Chat.Apps-engine \
     \
-    && echo -e 'pcm.!default {\n type hw\n card 0\n}\n\nctl.!default {\n type hw\n card 0\n}' > /app/.asoundrc \
+    # extra patches to fix the issues: 1. missing date-fns and 2. sound card not found
+    && meteor yarn add date-fns@^2.15.0 \
+    && echo 'pcm.!default {\n type hw\n card 0\n}\n\nctl.!default {\n type hw\n card 0\n}' > /app/.asoundrc \
     && meteor yarn run testunit --exclude app/models/server/models/Sessions.tests.js \
-    && (TEST_MODE=true meteor run --allow-superuser & sleep 9m) && meteor yarn run test && pkill node \
+    && (TEST_MODE=true meteor run & sleep 7m) && meteor yarn run test && pkill node \
     \
-    && meteor --allow-superuser build --server-only --directory /app \
-    && cd /app/bundle/programs/server && yarn install \
+    && meteor build --server-only --directory /app \
+    && cd /app/bundle/programs/server && upgradeYarn && yarn install \
     \
     # purge build-deps (the g++ may lead the critical vulnerability `CVE-2019-19814`)
     && apt-mark auto '.*' > /dev/null && apt-mark manual $aptMark > /dev/null \
     && find /usr/local -type f -executable -exec ldd '{}' ';' | awk '/=>/ { print $(NF-1) }' | sort -u | xargs -r dpkg-query --search | cut -d: -f1 | sort -u | xargs -r apt-mark manual \
     && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
     \
-    && mv /app/Rocket.Chat/.git /app/rc.git && mv /app/Rocket.Chat.Apps-engine /app/rcae.git \
-    && rm -rf /app/bundle /app/Rocket.Chat /app/Rocket.Chat.Apps-engine && mkdir -p /app/Rocket.Chat /app/Rocket.Chat.Apps-engine \
-    && mv /app/rc.git /app/Rocket.Chat/.git && mv /app/rcae.git /app/Rocket.Chat.Apps-engine \
+    # purge source code and node_modules
+    && mv /app/Rocket.Chat/.git /app/rc.git && mv /app/Rocket.Chat.Apps-engine/.git /app/rc-ae.git \
+    && mkdir /app/locks && mv /app/bundle/programs/server/yarn.lock /app/locks/bundle.yarn.lock \
+    && mv /app/Rocket.Chat/yarn.lock /app/locks/rc.yarn.lock && mv /app/Rocket.Chat.Apps-engine/yarn.lock /app/locks/rc-ae.yarn.lock \
+    && rm -rf /app/bundle /app/Rocket.Chat /app/Rocket.Chat.Apps-engine \
+    && mkdir -p /app/Rocket.Chat /app/Rocket.Chat.Apps-engine \
+    && mv /app/rc.git /app/Rocket.Chat/.git && mv /app/rc-ae.git /app/Rocket.Chat.Apps-engine/.git \
     \
     # grant file access permission for all users (also require setting the `HOME=/app` to share caches across users)
     && chown -R rocketchat:rocketchat /app && chmod -R ugo+rwX /app
+ENV YARN_ENABLE_SCRIPTS=false YARN_ENABLE_TELEMETRY=false
