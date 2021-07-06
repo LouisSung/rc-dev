@@ -1,36 +1,34 @@
 FROM node:12.22.1-buster-slim
-# docker pull louissung/rc:build-3.14.1-e107
+# docker pull louissung/rc:build-3.16.1-4ec6
 
-ENV RC_VERSION=3.14.1 HOME=/app TERM=xterm METEOR_ALLOW_SUPERUSER=true \
+ENV RC_VERSION=3.16.1 HOME=/app TERM=xterm METEOR_ALLOW_SUPERUSER=true \
     YARN_ENABLE_GLOBAL_CACHE=true YARN_NODE_LINKER=node-modules YARN_ENABLE_INLINE_HUNKS=true
 WORKDIR /app
 RUN groupadd -r rocketchat && useradd -r -g rocketchat rocketchat \
     && apt-get update && apt-get install -y --no-install-recommends \
             ca-certificates curl fontconfig git make openssh-server python vim \
-            libgtk2.0-0 libgtk-3-0 libgbm-dev libnotify-dev libgconf-2-4 libnss3 libxss1 libasound2 libxtst6 xauth xvfb \
+            libgtk2.0-0 libgtk-3-0 libgbm-dev libgconf-2-4 libnss3 libxss1 libasound2 libxtst6 xauth xvfb \
         && aptMark="$(apt-mark showmanual)" && apt-get install -y --no-install-recommends \
-            g++ \
+            libnotify-dev g++ \
         && rm -rf /var/lib/apt/lists/* \
     \
-    # fixme: restore `yarn set version from sources` when the issues and pr are solved and merged
     && mkdir -p /app/upgradeYarn && cd /app/upgradeYarn \
-    && yarn init -y && yarn set version berry && YARN_NODE_LINKER=pnp yarn set version from sources && rm package.json && cd /app \
+    && yarn init -y && yarn set version berry && yarn set version 3.0.0-rc.9 && rm package.json && cd /app \
     && echo '#!/usr/bin/env bash\ncp -rn /app/upgradeYarn/. .' > /usr/local/bin/upgradeYarn \
     && chown -R rocketchat:rocketchat /usr/local/bin && chmod -R ugo+rwx /usr/local/bin \
     \
     && curl https://install.meteor.com/?release=2.1.1 | sh && meteor npm install -g yarn \
     \
     # clone source code and install dependencies
-    && git clone --branch v1.25.0 https://github.com/RocketChat/Rocket.Chat.Apps-engine /app/Rocket.Chat.Apps-engine \
+    && git clone --branch v1.27.0 https://github.com/RocketChat/Rocket.Chat.Apps-engine /app/Rocket.Chat.Apps-engine \
     && cd /app/Rocket.Chat.Apps-engine && upgradeYarn && yarn install && yarn run compile \
-    && git clone --branch 3.14.1 https://github.com/RocketChat/Rocket.Chat /app/Rocket.Chat \
+    && git clone --branch 3.16.1 https://github.com/RocketChat/Rocket.Chat /app/Rocket.Chat \
     && cd /app/Rocket.Chat && upgradeYarn && meteor yarn install && meteor yarn add ../Rocket.Chat.Apps-engine \
-    \
-    # extra patches to fix the issues: 1. missing date-fns and 2. sound card not found
-    && meteor yarn add date-fns@^2.15.0 \
+    # extra patches to fix the issues: 1. missing date-fns and bcrypt, 2. sound card not found
+    && meteor yarn add date-fns@^2.15.0 bcrypt@5.0.0 \
     && echo 'pcm.!default {\n type hw\n card 0\n}\n\nctl.!default {\n type hw\n card 0\n}' > /app/.asoundrc \
     && meteor yarn run testunit --exclude app/models/server/models/Sessions.tests.js \
-    && (TEST_MODE=true meteor run & sleep 7m) && meteor yarn run test && pkill node \
+    && (TEST_MODE=true meteor run & sleep 9m) && meteor yarn run test && pkill node \
     \
     && meteor build --server-only --directory /app \
     && cd /app/bundle/programs/server && upgradeYarn && yarn install \

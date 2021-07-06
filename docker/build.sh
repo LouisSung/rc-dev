@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 
 # specify manually
-VER_ROCKET_CHAT='3.14.1'
+VER_ROCKET_CHAT='3.16.1'
 
 # update automatically
 VER_BASE='12.22.1-buster-slim'
 VER_METEOR='2.1.1'
-VER_APPS_ENGINE='1.25.0'
+VER_APPS_ENGINE='1.27.0'
 
 THIS_SCRIPT='build.sh'
 DOCKERFILE_BUILD='DockerfileBuild'
