@@ -1,12 +1,10 @@
 FROM node:12.22.1-buster-slim
-# docker pull louissung/rc:build-3.16.1-bc70
-# FIXME: NEVER EVER TRY TO USE YARN UNLESS THERE ARE OFFICIAL SUPPORTS, IT SUCKS
+# docker pull louissung/rc:build-3.16.2-7940
 
-ENV RC_VERSION=3.16.2 HOME=/app TERM=xterm METEOR_ALLOW_SUPERUSER=true \
-    YARN_ENABLE_GLOBAL_CACHE=true YARN_NODE_LINKER=node-modules YARN_ENABLE_INLINE_BUILDS=true \
-    YARN_ENABLE_INLINE_HUNKS=true YARN_ENABLE_TELEMETRY=false
+ENV RC_VERSION=3.16.2 HOME=/app TERM=xterm METEOR_ALLOW_SUPERUSER=true
 WORKDIR /app
 RUN groupadd -r rocketchat && useradd -r -g rocketchat rocketchat \
+    && npm install -g node-gyp-cache && npm config set node_gyp node-gyp-cache \
     && apt-get update && apt-get install -y --no-install-recommends \
             ca-certificates curl fontconfig git make openssh-server python vim \
             ## Cypress dependencies
@@ -16,32 +14,22 @@ RUN groupadd -r rocketchat && useradd -r -g rocketchat rocketchat \
             libnotify-dev g++ build-essential \
         && rm -rf /var/lib/apt/lists/* \
     \
-    # prepare yarn@3 environment (execute `upgradeYarn` in EACH workspace to upgrade from yarn@1 to yarn@3)
-    && mkdir -p /app/upgradeYarn && cd /app/upgradeYarn \
-    ## TODO: keep track of the latest yarn version (as of yarn@3.0.0-rc.9)
-    && yarn init -y && yarn set version berry && yarn set version 3.0.0-rc.9 \
-    && yarn config set packageExtensions --json '{"*@*":{"dependencies":{"*":"*"},"peerDependencies":{"*":"*"}}}' \
-    && echo '#!/usr/bin/env bash\ncp -rn /app/upgradeYarn/. .' > /usr/local/bin/upgradeYarn \
-    && rm package.json && cd /app && chown -R rocketchat:rocketchat /usr/local/bin && chmod -R ugo+rwx /usr/local/bin \
-    \
     \
     # clone source code and install dependencies
-    && curl https://install.meteor.com/?release=2.1.1 | sh && meteor npm install -g yarn \
+    && curl https://install.meteor.com/?release=2.1.1 | sh \
     && git clone --branch 3.16.2 https://github.com/RocketChat/Rocket.Chat /app/Rocket.Chat \
-    && cd /app/Rocket.Chat && upgradeYarn && meteor yarn install && meteor yarn rebuild \
-    ## FIXME: dependency `date-fns` is used but not listed in package.json (as of Rocket.Chat@3.16.1), remove if fixed
-    && yarn add date-fns@^2.15.0 \
+    && cd /app/Rocket.Chat && meteor npm install \
     \
     \
     # run unit and e2e tests
-    && meteor yarn run testunit --exclude app/models/server/models/Sessions.tests.js \
     ## adopt dummy sound card for e2e test
     && echo 'pcm.!default {\n type hw\n card 0\n}\n\nctl.!default {\n type hw\n card 0\n}' > /app/.asoundrc \
-    && (TEST_MODE=true meteor run & sleep 9m) && meteor yarn run test && pkill node \
+    && meteor npm run testunit -- --exclude app/models/server/models/Sessions.tests.js \
+    && (TEST_MODE=true meteor run & sleep 7m) && meteor npm run test && pkill node \
     \
     # generate app bundle artifacts
     && meteor build --server-only --directory /app \
-    && cd /app/bundle/programs/server && upgradeYarn && yarn install && yarn rebuild \
+    && cd /app/bundle/programs/server && npm install \
     \
     \
     # purge build-deps
@@ -50,9 +38,11 @@ RUN groupadd -r rocketchat && useradd -r -g rocketchat rocketchat \
     && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
     \
     # keep the .git folder and yarn.lock as well as purge source code and node_modules
-    && mkdir -p /app/meta/bundle && mv /app/Rocket.Chat/.git /app/meta/.git \
-    && cp /app/Rocket.Chat/package.json /app/Rocket.Chat/yarn.lock /app/meta \
-    && cp /app/bundle/programs/server/package.json /app/bundle/programs/server/yarn.lock /app/meta/bundle \
+    && mkdir -p /app/meta/bundle \
+    && cd /app/Rocket.Chat && tar -zcf node_modules.tar.gz node_modules \
+    && cd /app/bundle/programs/server && tar -zcf node_modules.tar.gz node_modules \
+    && mv /app/Rocket.Chat/.git /app/Rocket.Chat/node_modules.tar.gz /app/Rocket.Chat/package*.json /app/meta \
+    && mv /app/bundle/programs/server/node_modules.tar.gz /app/bundle/programs/server/package*.json /app/meta/bundle \
     && rm -rf /app/Rocket.Chat /app/bundle \
     && mkdir -p /app/Rocket.Chat && mv /app/meta/.git /app/Rocket.Chat/.git \
     \

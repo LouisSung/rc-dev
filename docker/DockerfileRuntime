@@ -1,6 +1,6 @@
 FROM node:12.22.1-buster-slim
 
-# COPY bundle /app/bundle
+COPY bundle /app/bundle
 ENV RC_VERSION=3.16.2 NODE_ENV=production
 RUN groupadd -r rocketchat && useradd -r -g rocketchat rocketchat \
     && apt-get update && apt-get install -y --no-install-recommends fontconfig && rm -rf /var/lib/apt/lists/* \

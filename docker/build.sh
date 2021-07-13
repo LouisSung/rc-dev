@@ -6,8 +6,6 @@ VER_ROCKET_CHAT='3.16.2'
 # update automatically
 VER_BASE_IMAGE='12.22.1-buster-slim'
 VER_METEOR='2.1.1'
-## FIXME: dependency `date-fns` is used but not listed in package.json (as of Rocket.Chat@3.16.1), remove if fixed
-VER_WORKAROUND_DATE_FNS='^2.15.0' # CHECK `https://github.com/RocketChat/Rocket.Chat.Livechat/blob/develop/package.json`
 
 THIS_SCRIPT='build.sh'
 DOCKERFILE_BUILD='DockerfileBuild'
@@ -33,7 +31,6 @@ for f in $DOCKERFILE_BUILD $DOCKERFILE_RUNTIME $DOCKERFILE_DEV; do
   sed -i "s/\(install.meteor.com\/?release\)=[^ ]*/\1=$VER_METEOR/" $f
   sed -i "s/RC_VERSION=[^ ]*/RC_VERSION=$VER_ROCKET_CHAT/" $f
   sed -i "s/--branch [^ ]* \(.*\/Rocket.Chat \)/--branch $VER_ROCKET_CHAT \1/" $f
-  sed -i "s/\(yarn add date-fns\)@[^ ]*/\1@$VER_WORKAROUND_DATE_FNS/" $f
 done
 sed -i "s/\(FROM node:.*\)-slim/\1/" $DOCKERFILE_DEV  # use normal debian for dev env
 sed -i "0,/VER_BASE_IMAGE=.*/s/VER_BASE_IMAGE=.*/VER_BASE_IMAGE='$VER_BASE_IMAGE'/" $THIS_SCRIPT
@@ -43,9 +40,9 @@ sed -i "s/louissung\/rc:dev-[^ ]*/louissung\/rc:dev-$VER_ROCKET_CHAT/" $DOCKER_E
 
 # build images
 # comment out to copy bundle from the image
-# rm -rf ../app/bundle && mkdir -p ../app/bundle && docker run --name rc-bundle -v "$(pwd)/../app/bundle:/appBundle" "louissung/rc:dev-$VER_ROCKET_CHAT" bash -c 'cp -r /root/app/bundle/. /appBundle && chmod -R o+w /appBundle' && docker rm rc-bundle
-#docker build -t "louissung/rc:build-$VER_ROCKET_CHAT" -f $DOCKERFILE_BUILD .
+docker build -t "louissung/rc:build-$VER_ROCKET_CHAT" -f $DOCKERFILE_BUILD .
 docker build -t "louissung/rc:dev-$VER_ROCKET_CHAT" -f $DOCKERFILE_DEV .
+# rm -rf app/bundle && mkdir -p app/bundle && docker run --name rc-bundle -v "$(pwd)/../app/bundle:/appBundle" "louissung/rc:dev-$VER_ROCKET_CHAT" bash -c 'cp -r /app/bundle/. /appBundle && chmod -R o+w /appBundle' && docker rm rc-bundle
 #docker build -t "louissung/rc:runtime-$VER_ROCKET_CHAT" -f $DOCKERFILE_RUNTIME .
 
 # >>>>>>> Script End

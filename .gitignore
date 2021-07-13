@@ -5,8 +5,6 @@
 !.idea/webServers.xml
 
 # Rocket.Chat Dev Env
-Rocket.Chat/
-Rocket.Chat.Apps-engine/
-Apps/recipes/
-app/
-.rc.key
+rc-dev/
+docker/app/
+id_rsa

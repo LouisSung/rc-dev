@@ -1,5 +1,5 @@
 FROM louissung/rc:build-3.16.2
-# docker pull louissung/rc:dev-3.16.2-3efc
+# docker pull louissung/rc:dev-3.16.2-7355
 
 ENV METEOR_MONGO_BIND_IP=0.0.0.0
 WORKDIR /app/Rocket.Chat
@@ -8,20 +8,18 @@ RUN mkdir -p /var/run/sshd /app/.ssh && ssh-keygen -t rsa -b 4096 -f /app/.ssh/i
     && echo '#!/usr/bin/env bash\n/usr/sbin/sshd\nexec "$@"' > /usr/local/bin/docker-entrypoint.sh \
     && chmod +x /usr/local/bin/docker-entrypoint.sh
 
-RUN cd /app/Rocket.Chat && git checkout . && upgradeYarn && mv /app/meta/yarn.lock /app/Rocket.Chat \
-    ## FIXME: dependency `date-fns` is used but not listed in package.json (as of Rocket.Chat@3.16.1), remove if fixed
-    && meteor yarn install && yarn add date-fns@^2.15.0 \
+RUN cd /app/Rocket.Chat && git checkout . && tar -zxf /app/meta/node_modules.tar.gz && meteor npm install \
     && meteor build --server-only --directory /app \
-    && cd /app/bundle/programs/server && upgradeYarn && mv /app/meta/bundle/yarn.lock /app/bundle/programs/server \
+    && cd /app/bundle/programs/server && tar -zxf /app/meta/bundle/node_modules.tar.gz && npm install \
+    && chown -R rocketchat:rocketchat /app/bundle && chmod -R ugo+rwX /app/bundle
 # VOLUME /app/Rocket.Chat/.meteor/local/db  # for dev MongoDB; mount as needed when docker run
 
 # sample plugins: https://developer.rocket.chat/apps-development/recipes
-RUN cd /app && yarn global add @rocket.chat/apps-cli \
+RUN npm install --global @rocket.chat/apps-cli \
     && git clone --branch recipes/registering-api-endpoints https://github.com/RocketChat/Apps.RocketChat.Tester /app/Apps/recipes \
-    && cd /app/Apps/recipes && upgradeYarn && yarn install \
     ## FIXME: class name not match with rule and typescript version too low (as of commit `104124b` on Jul 9, 2020)
-    && sed -i 's/export class RocketChatTester/export class AppsRocketChatTesterApp/' AppsRocketChatTesterApp.ts \
-    && yarn add typescript@~3.9.9 --dev && rc-apps package
+    && cd /app/Apps/recipes && sed -i 's/export class RocketChatTester/export class AppsRocketChatTesterApp/' AppsRocketChatTesterApp.ts \
+    && npm install typescript@~3.9.9 --save-dev && rc-apps package
 
 EXPOSE 22 3000 3001 9229
 ENTRYPOINT ["docker-entrypoint.sh"]

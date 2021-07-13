@@ -7,18 +7,17 @@
 
 ## Dev Env Setup
 ```bash
-# init
+# init (run once)
 mkdir rc-dev && cd rc-dev
-git clone --branch 3.14.0 https://github.com/RocketChat/Rocket.Chat
-git clone --branch v1.25.0 https://github.com/RocketChat/Rocket.Chat.Apps-engine
+git clone --branch 3.16.2 https://github.com/RocketChat/Rocket.Chat
 git clone --branch recipes/registering-api-endpoints https://github.com/RocketChat/Apps.RocketChat.Tester Apps/recipes
-cd Rocket.Chat && git config core.autocrlf false && cd ../Rocket.Chat.Apps-engine && git config core.autocrlf false && cd ../Apps/recipes && git config core.autocrlf false && cd ../../
+git --git-dir=Rocket.Chat/.git config conre.autocrlf false
 
-docker run --name rc-ssh louissung/rc:dev-3.14.0 cat /root/.rc.key > .rc.key && chmod 600 .rc.key && ssh-add .rc.key && rm .rc.key && docker rm rc-ssh
+docker run --name rc-ssh louissung/rc:dev-3.16.2 cat /app/id_rsa > .rc.key && chmod 600 .rc.key && ssh-add .rc.key && rm .rc.key && docker rm rc-ssh
 docker volume create rc-db
 
 # run dev
-docker run -idt --name rc-dev -v rc-db:/root/Rocket.Chat/.meteor/local/db -p 2222:22 -p 3000:3000 -p 3001:3001 -p 9229:9229 louissung/rc:dev-3.14.0
+docker run -idt --name rc-dev -v rc-db:/app/Rocket.Chat/.meteor/local/db -p 2222:22 -p 3000:3000 -p 3001:3001 -p 9229:9229 louissung/rc:dev-3.16.2
 # ssh -p 2222 root@localhost
 
 # run prod (see commands in docker/docker-entrypoint.sh)
@@ -36,7 +35,7 @@ docker exec -it rc-dev bash
 * Meteor Folder structure: [Meteor Guide](https://guide.meteor.com/structure.html#example-app-structure)
 * Sample breakpoint: [`server/methods/canAccessRoom.js#L10`](https://github.com/RocketChat/Rocket.Chat/blob/3.14.0/server/methods/canAccessRoom.js#L10)
 
-## WebStorm Run/Debug Configs
+## WebStorm Run/Debug Configs (OUTDATED)
 (outdated for louissung/rc-dev:3.14.0-apps-engine and louissung/rc:dev-3.14.0, use sftp instead)
 1. Run Docker container
     <img src="docs/img/1-docker-set-up.png" width="1080">
