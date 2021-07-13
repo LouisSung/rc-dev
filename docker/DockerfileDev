@@ -1,47 +1,27 @@
-FROM node:12.22.1-buster
-# docker pull louissung/rc:dev-3.14.1-07a8
+FROM louissung/rc:build-3.16.2
+# docker pull louissung/rc:dev-3.16.2-3efc
 
-ENV RC_VERSION=3.14.1 HOME=/app METEOR_ALLOW_SUPERUSER=true METEOR_MONGO_BIND_IP=0.0.0.0
-WORKDIR /app
-RUN groupadd -r rocketchat && useradd -r -g rocketchat rocketchat \
-    && apt-get update && apt-get install -y --no-install-recommends \
-            openssh-server vim \
-            libgtk2.0-0 libgtk-3-0 libgbm-dev libnotify-dev libgconf-2-4 libnss3 libxss1 libasound2 libxtst6 xauth xvfb \
-        && rm -rf /var/lib/apt/lists/* \
-    \
-    && mkdir -p /var/run/sshd /app/.ssh && ssh-keygen -t rsa -b 4096 -f /app/.ssh/id_rsa -P '' -C 'rc-dev' \
-    && mv /app/.ssh/id_rsa.pub /app/.ssh/authorized_keys && mv /app/.ssh/id_rsa /app/.rc.key \
+ENV METEOR_MONGO_BIND_IP=0.0.0.0
+WORKDIR /app/Rocket.Chat
+RUN mkdir -p /var/run/sshd /app/.ssh && ssh-keygen -t rsa -b 4096 -f /app/.ssh/id_rsa -P '' -C 'rc-dev' \
+    && mv /app/.ssh/id_rsa.pub /app/.ssh/authorized_keys && mv /app/.ssh/id_rsa /app/id_rsa \
     && echo '#!/usr/bin/env bash\n/usr/sbin/sshd\nexec "$@"' > /usr/local/bin/docker-entrypoint.sh \
     && chmod +x /usr/local/bin/docker-entrypoint.sh
 
-RUN curl https://install.meteor.com/?release=2.1.1 | sh \
-    && meteor npm install -g yarn && yarn config set install.prefer-offline true \
-    \
-    && git clone --branch v1.25.0 https://github.com/RocketChat/Rocket.Chat.Apps-engine /app/Rocket.Chat.Apps-engine \
-    && cd /app/Rocket.Chat.Apps-engine && yarn install && yarn run compile \
-    && git clone --branch 3.14.1 https://github.com/RocketChat/Rocket.Chat /app/Rocket.Chat \
-    && cd /app/Rocket.Chat && meteor yarn add ../Rocket.Chat.Apps-engine
-
-WORKDIR /app/Rocket.Chat
-RUN echo -e 'pcm.!default {\n type hw\n card 0\n}\n\nctl.!default {\n type hw\n card 0\n}' > ~/.asoundrc \
-    && meteor yarn add date-fns --save \
-    && meteor yarn run testunit --exclude app/models/server/models/Sessions.tests.js \
-    && (TEST_MODE=true meteor run --inspect & sleep 9m) && meteor yarn run test && pkill node \
-    \
+RUN cd /app/Rocket.Chat && git checkout . && upgradeYarn && mv /app/meta/yarn.lock /app/Rocket.Chat \
+    ## FIXME: dependency `date-fns` is used but not listed in package.json (as of Rocket.Chat@3.16.1), remove if fixed
+    && meteor yarn install && yarn add date-fns@^2.15.0 \
     && meteor build --server-only --directory /app \
-    && cd /app/bundle/programs/server && yarn install \
-    && mkdir -p /app/uploads && chown -R rocketchat:rocketchat /app && chmod -R ugo+rwX /app
+    && cd /app/bundle/programs/server && upgradeYarn && mv /app/meta/bundle/yarn.lock /app/bundle/programs/server \
 # VOLUME /app/Rocket.Chat/.meteor/local/db  # for dev MongoDB; mount as needed when docker run
 
 # sample plugins: https://developer.rocket.chat/apps-development/recipes
-RUN yarn global add @rocket.chat/apps-cli \
+RUN cd /app && yarn global add @rocket.chat/apps-cli \
     && git clone --branch recipes/registering-api-endpoints https://github.com/RocketChat/Apps.RocketChat.Tester /app/Apps/recipes \
-    && cd /app/Apps/recipes && yarn install \
+    && cd /app/Apps/recipes && upgradeYarn && yarn install \
+    ## FIXME: class name not match with rule and typescript version too low (as of commit `104124b` on Jul 9, 2020)
     && sed -i 's/export class RocketChatTester/export class AppsRocketChatTesterApp/' AppsRocketChatTesterApp.ts \
-    && yarn add typescript@~3.9.9 --save-dev && rc-apps package \
-    \
-    && git clone --branch 3.2.2 https://github.com/RocketChat/Rocket.Chat.Electron /app/Rocket.Chat.Electron \
-    && cd /app/Rocket.Chat.Electron && yarn install --check-files && yarn build
+    && yarn add typescript@~3.9.9 --dev && rc-apps package
 
 EXPOSE 22 3000 3001 9229
 ENTRYPOINT ["docker-entrypoint.sh"]

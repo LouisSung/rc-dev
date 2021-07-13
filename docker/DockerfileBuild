@@ -1,51 +1,60 @@
 FROM node:12.22.1-buster-slim
-# docker pull louissung/rc:build-3.16.1-4ec6
+# docker pull louissung/rc:build-3.16.1-bc70
+# FIXME: NEVER EVER TRY TO USE YARN UNLESS THERE ARE OFFICIAL SUPPORTS, IT SUCKS
 
-ENV RC_VERSION=3.16.1 HOME=/app TERM=xterm METEOR_ALLOW_SUPERUSER=true \
-    YARN_ENABLE_GLOBAL_CACHE=true YARN_NODE_LINKER=node-modules YARN_ENABLE_INLINE_HUNKS=true
+ENV RC_VERSION=3.16.2 HOME=/app TERM=xterm METEOR_ALLOW_SUPERUSER=true \
+    YARN_ENABLE_GLOBAL_CACHE=true YARN_NODE_LINKER=node-modules YARN_ENABLE_INLINE_BUILDS=true \
+    YARN_ENABLE_INLINE_HUNKS=true YARN_ENABLE_TELEMETRY=false
 WORKDIR /app
 RUN groupadd -r rocketchat && useradd -r -g rocketchat rocketchat \
     && apt-get update && apt-get install -y --no-install-recommends \
             ca-certificates curl fontconfig git make openssh-server python vim \
+            ## Cypress dependencies
             libgtk2.0-0 libgtk-3-0 libgbm-dev libgconf-2-4 libnss3 libxss1 libasound2 libxtst6 xauth xvfb \
         && aptMark="$(apt-mark showmanual)" && apt-get install -y --no-install-recommends \
-            libnotify-dev g++ \
+            ## for the later purge because the g++ leads the critical vulnerability `CVE-2019-19814`
+            libnotify-dev g++ build-essential \
         && rm -rf /var/lib/apt/lists/* \
     \
+    # prepare yarn@3 environment (execute `upgradeYarn` in EACH workspace to upgrade from yarn@1 to yarn@3)
     && mkdir -p /app/upgradeYarn && cd /app/upgradeYarn \
-    && yarn init -y && yarn set version berry && yarn set version 3.0.0-rc.9 && rm package.json && cd /app \
+    ## TODO: keep track of the latest yarn version (as of yarn@3.0.0-rc.9)
+    && yarn init -y && yarn set version berry && yarn set version 3.0.0-rc.9 \
+    && yarn config set packageExtensions --json '{"*@*":{"dependencies":{"*":"*"},"peerDependencies":{"*":"*"}}}' \
     && echo '#!/usr/bin/env bash\ncp -rn /app/upgradeYarn/. .' > /usr/local/bin/upgradeYarn \
-    && chown -R rocketchat:rocketchat /usr/local/bin && chmod -R ugo+rwx /usr/local/bin \
+    && rm package.json && cd /app && chown -R rocketchat:rocketchat /usr/local/bin && chmod -R ugo+rwx /usr/local/bin \
     \
-    && curl https://install.meteor.com/?release=2.1.1 | sh && meteor npm install -g yarn \
     \
     # clone source code and install dependencies
-    && git clone --branch v1.27.0 https://github.com/RocketChat/Rocket.Chat.Apps-engine /app/Rocket.Chat.Apps-engine \
-    && cd /app/Rocket.Chat.Apps-engine && upgradeYarn && yarn install && yarn run compile \
-    && git clone --branch 3.16.1 https://github.com/RocketChat/Rocket.Chat /app/Rocket.Chat \
-    && cd /app/Rocket.Chat && upgradeYarn && meteor yarn install && meteor yarn add ../Rocket.Chat.Apps-engine \
-    # extra patches to fix the issues: 1. missing date-fns and bcrypt, 2. sound card not found
-    && meteor yarn add date-fns@^2.15.0 bcrypt@5.0.0 \
-    && echo 'pcm.!default {\n type hw\n card 0\n}\n\nctl.!default {\n type hw\n card 0\n}' > /app/.asoundrc \
+    && curl https://install.meteor.com/?release=2.1.1 | sh && meteor npm install -g yarn \
+    && git clone --branch 3.16.2 https://github.com/RocketChat/Rocket.Chat /app/Rocket.Chat \
+    && cd /app/Rocket.Chat && upgradeYarn && meteor yarn install && meteor yarn rebuild \
+    ## FIXME: dependency `date-fns` is used but not listed in package.json (as of Rocket.Chat@3.16.1), remove if fixed
+    && yarn add date-fns@^2.15.0 \
+    \
+    \
+    # run unit and e2e tests
     && meteor yarn run testunit --exclude app/models/server/models/Sessions.tests.js \
+    ## adopt dummy sound card for e2e test
+    && echo 'pcm.!default {\n type hw\n card 0\n}\n\nctl.!default {\n type hw\n card 0\n}' > /app/.asoundrc \
     && (TEST_MODE=true meteor run & sleep 9m) && meteor yarn run test && pkill node \
     \
+    # generate app bundle artifacts
     && meteor build --server-only --directory /app \
-    && cd /app/bundle/programs/server && upgradeYarn && yarn install \
+    && cd /app/bundle/programs/server && upgradeYarn && yarn install && yarn rebuild \
     \
-    # purge build-deps (the g++ may lead the critical vulnerability `CVE-2019-19814`)
+    \
+    # purge build-deps
     && apt-mark auto '.*' > /dev/null && apt-mark manual $aptMark > /dev/null \
     && find /usr/local -type f -executable -exec ldd '{}' ';' | awk '/=>/ { print $(NF-1) }' | sort -u | xargs -r dpkg-query --search | cut -d: -f1 | sort -u | xargs -r apt-mark manual \
     && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
     \
-    # purge source code and node_modules
-    && mv /app/Rocket.Chat/.git /app/rc.git && mv /app/Rocket.Chat.Apps-engine/.git /app/rc-ae.git \
-    && mkdir /app/locks && mv /app/bundle/programs/server/yarn.lock /app/locks/bundle.yarn.lock \
-    && mv /app/Rocket.Chat/yarn.lock /app/locks/rc.yarn.lock && mv /app/Rocket.Chat.Apps-engine/yarn.lock /app/locks/rc-ae.yarn.lock \
-    && rm -rf /app/bundle /app/Rocket.Chat /app/Rocket.Chat.Apps-engine \
-    && mkdir -p /app/Rocket.Chat /app/Rocket.Chat.Apps-engine \
-    && mv /app/rc.git /app/Rocket.Chat/.git && mv /app/rc-ae.git /app/Rocket.Chat.Apps-engine/.git \
+    # keep the .git folder and yarn.lock as well as purge source code and node_modules
+    && mkdir -p /app/meta/bundle && mv /app/Rocket.Chat/.git /app/meta/.git \
+    && cp /app/Rocket.Chat/package.json /app/Rocket.Chat/yarn.lock /app/meta \
+    && cp /app/bundle/programs/server/package.json /app/bundle/programs/server/yarn.lock /app/meta/bundle \
+    && rm -rf /app/Rocket.Chat /app/bundle \
+    && mkdir -p /app/Rocket.Chat && mv /app/meta/.git /app/Rocket.Chat/.git \
     \
     # grant file access permission for all users (also require setting the `HOME=/app` to share caches across users)
     && chown -R rocketchat:rocketchat /app && chmod -R ugo+rwX /app
-ENV YARN_ENABLE_SCRIPTS=false YARN_ENABLE_TELEMETRY=false
