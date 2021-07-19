@@ -1,5 +1,5 @@
 FROM louissung/rc:build-3.16.2
-# docker pull louissung/rc:dev-3.16.2-7355
+# docker pull louissung/rc:dev-3.16.2-e1ea
 
 ENV METEOR_MONGO_BIND_IP=0.0.0.0
 WORKDIR /app/Rocket.Chat
@@ -8,11 +8,13 @@ RUN mkdir -p /var/run/sshd /app/.ssh && ssh-keygen -t rsa -b 4096 -f /app/.ssh/i
     && echo '#!/usr/bin/env bash\n/usr/sbin/sshd\nexec "$@"' > /usr/local/bin/docker-entrypoint.sh \
     && chmod +x /usr/local/bin/docker-entrypoint.sh
 
-RUN cd /app/Rocket.Chat && git checkout . && tar -zxf /app/meta/node_modules.tar.gz && meteor npm install \
+RUN cd /app/Rocket.Chat && git checkout . \
+    && tar -zxf /app/meta/node_modules.tar.gz && meteor npm install --prefer-offline \
     && meteor build --server-only --directory /app \
-    && cd /app/bundle/programs/server && tar -zxf /app/meta/bundle/node_modules.tar.gz && npm install \
-    && chown -R rocketchat:rocketchat /app/bundle && chmod -R ugo+rwX /app/bundle
-# VOLUME /app/Rocket.Chat/.meteor/local/db  # for dev MongoDB; mount as needed when docker run
+    && cd /app/bundle/programs/server && tar -zxf /app/meta/bundle/node_modules.tar.gz \
+    && METEOR_SKIP_NPM_REBUILD=true npm install --prefer-offline \
+    && chown -R rocketchat:rocketchat /app/Rocket.Chat /app/bundle && chmod -R ugo+rwX /app/Rocket.Chat /app/bundle
+# VOLUME /app/Rocket.Chat/.meteor/local/db # for dev MongoDB; mount as needed when docker run
 
 # sample plugins: https://developer.rocket.chat/apps-development/recipes
 RUN npm install --global @rocket.chat/apps-cli \

@@ -1,5 +1,5 @@
 FROM node:12.22.1-buster-slim
-# docker pull louissung/rc:build-3.16.2-7940
+# docker pull louissung/rc:build-3.16.2-7404
 
 ENV RC_VERSION=3.16.2 HOME=/app TERM=xterm METEOR_ALLOW_SUPERUSER=true
 WORKDIR /app
@@ -37,14 +37,13 @@ RUN groupadd -r rocketchat && useradd -r -g rocketchat rocketchat \
     && find /usr/local -type f -executable -exec ldd '{}' ';' | awk '/=>/ { print $(NF-1) }' | sort -u | xargs -r dpkg-query --search | cut -d: -f1 | sort -u | xargs -r apt-mark manual \
     && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
     \
-    # keep the .git folder and yarn.lock as well as purge source code and node_modules
+    # keep the .git folder and compressed node_modules as well as purge source code
     && mkdir -p /app/meta/bundle \
-    && cd /app/Rocket.Chat && tar -zcf node_modules.tar.gz node_modules \
-    && cd /app/bundle/programs/server && tar -zcf node_modules.tar.gz node_modules \
-    && mv /app/Rocket.Chat/.git /app/Rocket.Chat/node_modules.tar.gz /app/Rocket.Chat/package*.json /app/meta \
-    && mv /app/bundle/programs/server/node_modules.tar.gz /app/bundle/programs/server/package*.json /app/meta/bundle \
-    && rm -rf /app/Rocket.Chat /app/bundle \
-    && mkdir -p /app/Rocket.Chat && mv /app/meta/.git /app/Rocket.Chat/.git \
+    && tar -zcf /app/meta/node_modules.tar.gz --directory /app/Rocket.Chat node_modules \
+    && tar -zcf /app/meta/bundle/node_modules.tar.gz --directory /app/bundle/programs/server node_modules \
+    && mv /app/Rocket.Chat/.git /app/Rocket.Chat/package*.json /app/meta \
+    && mv /app/bundle/programs/server/package*.json /app/meta/bundle \
+    && rm -rf /app/Rocket.Chat /app/bundle && mkdir -p /app/Rocket.Chat && mv /app/meta/.git /app/Rocket.Chat/.git \
     \
     # grant file access permission for all users (also require setting the `HOME=/app` to share caches across users)
     && chown -R rocketchat:rocketchat /app && chmod -R ugo+rwX /app
